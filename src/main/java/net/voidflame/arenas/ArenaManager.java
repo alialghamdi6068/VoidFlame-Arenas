@@ -3,7 +3,6 @@ package net.voidflame.arenas;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
-import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -14,47 +13,39 @@ public final class ArenaManager {
     private final JavaPlugin plugin;
     private final Map<String, Arena> arenas = new ConcurrentHashMap<>();
 
-    public ArenaManager(JavaPlugin plugin) {
-        this.plugin = plugin;
-    }
+    public ArenaManager(JavaPlugin plugin) { this.plugin = Objects.requireNonNull(plugin); }
 
-    public void load() {
+    public synchronized void load() {
         arenas.clear();
         FileConfiguration config = plugin.getConfig();
-        ConfigurationSection section = config.getConfigurationSection("arenas");
-        if (section != null) {
-            var list = section.getMapList("list");
-            for (var raw : list) {
-                if (!(raw instanceof Map<?, ?> map)) continue;
-                String name = String.valueOf(map.containsKey("name") ? map.get("name") : "");
-                World world = Bukkit.getWorld(String.valueOf(map.containsKey("world") ? map.get("world") : ""));
-                if (world == null) {
-                    plugin.getLogger().warning("Skipping arena '" + name + "': world is not loaded.");
-                    continue;
-                }
-                Location a = readMapLocation(map.get("spawn-a"), world);
-                Location b = readMapLocation(map.get("spawn-b"), world);
-                boolean enabled = !map.containsKey("enabled") || Boolean.parseBoolean(String.valueOf(map.get("enabled")));
-                if (!name.isBlank()) arenas.put(normalize(name), new Arena(name, world, a, b, enabled));
-            }
+        for (Map<?, ?> raw : config.getMapList("arenas.list")) {
+            String name = string(raw.get("name"));
+            String worldName = string(raw.get("world"));
+            if (name.isBlank() || worldName.isBlank()) { warn("Ignoring arena with missing name/world."); continue; }
+            World world = Bukkit.getWorld(worldName);
+            if (world == null) { warn("Skipping '" + name + "': world '" + worldName + "' is not loaded."); continue; }
+
+            Location a = readLocation(raw.get("spawn-a"), world);
+            Location b = readLocation(raw.get("spawn-b"), world);
+            boolean enabled = !raw.containsKey("enabled") || Boolean.parseBoolean(string(raw.get("enabled")));
+            try { register(new Arena(name, world, a, b, enabled)); }
+            catch (IllegalArgumentException ex) { warn("Skipping invalid arena '" + name + "': " + ex.getMessage()); }
         }
-        if (config.getBoolean("arenas.auto-discover-worlds", false)) {
-            discoverWorlds();
-        }
+        if (config.getBoolean("arenas.auto-discover-worlds", false)) discoverWorlds();
         save();
     }
 
-    public void discoverWorlds() {
+    public synchronized void discoverWorlds() {
         String prefix = plugin.getConfig().getString("settings.discovery-name-prefix", "Arena-");
+        Set<String> existingWorlds = new HashSet<>();
+        arenas.values().forEach(a -> existingWorlds.add(a.world().getName().toLowerCase(Locale.ROOT)));
         int index = 1;
         for (World world : Bukkit.getWorlds()) {
-            String name = prefix + index++;
-            while (arenas.containsKey(normalize(name))) name = prefix + index++;
-            if (world.getName().toLowerCase(Locale.ROOT).contains("duel")
-                    || world.getName().toLowerCase(Locale.ROOT).contains("arena")) {
-                arenas.putIfAbsent(normalize(world.getName()),
-                        new Arena(world.getName(), world, null, null, true));
-            }
+            if (existingWorlds.contains(world.getName().toLowerCase(Locale.ROOT)) || !matchesDiscovery(world.getName())) continue;
+            String name;
+            do { name = prefix + index++; } while (contains(name));
+            register(new Arena(name, world, null, null, true));
+            existingWorlds.add(world.getName().toLowerCase(Locale.ROOT));
         }
         save();
     }
@@ -64,26 +55,22 @@ public final class ArenaManager {
     }
 
     public Optional<Arena> find(String name) {
-        if (name == null) return Optional.empty();
+        if (name == null || name.isBlank()) return Optional.empty();
         return Optional.ofNullable(arenas.get(normalize(name)));
     }
 
-    public Optional<Arena> acquireAvailable() {
-        return arenas.values().stream()
-                .sorted(Comparator.comparing(Arena::name, String.CASE_INSENSITIVE_ORDER))
-                .filter(Arena::isConfigured)
-                .filter(a -> a.acquire())
-                .findFirst();
+    public synchronized Optional<Arena> acquireAvailable() {
+        return all().stream().filter(Arena::isReady).filter(Arena::acquire).findFirst();
     }
 
-    public boolean create(String name, World world) {
-        if (name == null || name.isBlank() || world == null || arenas.containsKey(normalize(name))) return false;
-        arenas.put(normalize(name), new Arena(name.trim(), world, null, null, true));
+    public synchronized boolean create(String name, World world) {
+        if (name == null || name.isBlank() || world == null || contains(name)) return false;
+        register(new Arena(name, world, null, null, true));
         save();
         return true;
     }
 
-    public boolean delete(String name) {
+    public synchronized boolean delete(String name) {
         Optional<Arena> found = find(name);
         if (found.isEmpty() || found.get().state() == ArenaState.IN_USE) return false;
         arenas.remove(normalize(name));
@@ -91,28 +78,27 @@ public final class ArenaManager {
         return true;
     }
 
-    public boolean setSpawn(String name, boolean first, Location location) {
+    public synchronized boolean setSpawn(String name, boolean first, Location location) {
         Optional<Arena> found = find(name);
         if (found.isEmpty() || location == null || found.get().state() == ArenaState.IN_USE) return false;
-        if (first) found.get().setSpawnA(location);
-        else found.get().setSpawnB(location);
+        try {
+            if (first) found.get().setSpawnA(location); else found.get().setSpawnB(location);
+        } catch (IllegalArgumentException ex) { return false; }
         save();
         return true;
     }
 
-    public boolean setEnabled(String name, boolean enabled) {
+    public synchronized boolean setEnabled(String name, boolean enabled) {
         Optional<Arena> found = find(name);
         if (found.isEmpty()) return false;
-        if (enabled) found.get().enable();
-        else {
-            if (found.get().state() == ArenaState.IN_USE) return false;
-            found.get().disable();
-        }
+        Arena arena = found.get();
+        if (!enabled && arena.state() == ArenaState.IN_USE) return false;
+        if (enabled) arena.enable(); else arena.disable();
         save();
         return true;
     }
 
-    public boolean release(String name) {
+    public synchronized boolean release(String name) {
         Optional<Arena> found = find(name);
         if (found.isEmpty() || found.get().state() != ArenaState.IN_USE) return false;
         found.get().release();
@@ -120,7 +106,16 @@ public final class ArenaManager {
         return true;
     }
 
-    public void releaseAll() {
+    public synchronized boolean release(Arena arena) {
+        if (arena == null || arena.state() != ArenaState.IN_USE) return false;
+        arena.release();
+        save();
+        return true;
+    }
+
+    public synchronized boolean reset(String name) { return release(name); }
+
+    public synchronized void releaseAll() {
         arenas.values().forEach(Arena::release);
         save();
     }
@@ -128,54 +123,58 @@ public final class ArenaManager {
     public void save() {
         if (!plugin.getConfig().getBoolean("settings.persist-to-file", true)) return;
         List<Map<String, Object>> list = new ArrayList<>();
-        for (Arena arena : arenas.values()) {
+        for (Arena arena : all()) {
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("name", arena.name());
             data.put("world", arena.world().getName());
             data.put("enabled", arena.enabled());
-            data.put("spawn-a", toMap(arena.spawnA()));
-            data.put("spawn-b", toMap(arena.spawnB()));
+            data.put("spawn-a", writeLocation(arena.spawnA()));
+            data.put("spawn-b", writeLocation(arena.spawnB()));
             list.add(data);
         }
         plugin.getConfig().set("arenas.list", list);
         plugin.saveConfig();
     }
 
-    private Location readLocation(ConfigurationSection section, World world) {
-        if (section == null) return null;
-        return new Location(world,
-                section.getDouble("x"),
-                section.getDouble("y"),
-                section.getDouble("z"),
-                (float) section.getDouble("yaw"),
-                (float) section.getDouble("pitch"));
+    public long availableCount() { return all().stream().filter(Arena::isReady).count(); }
+    public long inUseCount() { return all().stream().filter(a -> a.state() == ArenaState.IN_USE).count(); }
+    public long disabledCount() { return all().stream().filter(a -> a.state() == ArenaState.DISABLED).count(); }
+
+    private void register(Arena arena) {
+        if (arenas.putIfAbsent(normalize(arena.name()), arena) != null) warn("Duplicate arena ignored: " + arena.name());
     }
 
-    private Location readMapLocation(Object raw, World world) {
+    private boolean contains(String name) { return arenas.containsKey(normalize(name)); }
+
+    private boolean matchesDiscovery(String worldName) {
+        String lower = worldName.toLowerCase(Locale.ROOT);
+        List<String> patterns = plugin.getConfig().getStringList("settings.discovery-world-name-contains");
+        if (patterns.isEmpty()) patterns = List.of("duel", "arena");
+        return patterns.stream().map(s -> s.toLowerCase(Locale.ROOT)).anyMatch(lower::contains);
+    }
+
+    private Location readLocation(Object raw, World world) {
         if (!(raw instanceof Map<?, ?> map)) return null;
-        return new Location(world,
-                number(map.get("x")), number(map.get("y")), number(map.get("z")),
-                (float) number(map.get("yaw")), (float) number(map.get("pitch")));
+        try {
+            return new Location(world, number(map.get("x")), number(map.get("y")), number(map.get("z")),
+                    (float) number(map.get("yaw")), (float) number(map.get("pitch")));
+        } catch (RuntimeException ex) { return null; }
     }
 
-    private Map<String, Object> toMap(Location location) {
+    private Map<String, Object> writeLocation(Location location) {
         if (location == null) return null;
         Map<String, Object> map = new LinkedHashMap<>();
-        map.put("x", location.getX());
-        map.put("y", location.getY());
-        map.put("z", location.getZ());
-        map.put("yaw", location.getYaw());
-        map.put("pitch", location.getPitch());
+        map.put("x", location.getX()); map.put("y", location.getY()); map.put("z", location.getZ());
+        map.put("yaw", location.getYaw()); map.put("pitch", location.getPitch());
         return map;
     }
 
     private double number(Object value) {
-        if (value instanceof Number number) return number.doubleValue();
-        try { return Double.parseDouble(String.valueOf(value)); }
-        catch (Exception ignored) { return 0.0; }
+        if (value instanceof Number n) return n.doubleValue();
+        return Double.parseDouble(String.valueOf(value));
     }
 
-    private String normalize(String name) {
-        return name.trim().toLowerCase(Locale.ROOT);
-    }
+    private String string(Object value) { return value == null ? "" : String.valueOf(value); }
+    private String normalize(String name) { return name.trim().toLowerCase(Locale.ROOT); }
+    private void warn(String message) { plugin.getLogger().warning("[Arenas] " + message); }
 }
