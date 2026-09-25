@@ -36,4 +36,5 @@ messages:
   list-entry: "&7- &e<arena> &8| &f<world> &8| &7<state> &8| &7ready=&f<ready>"
   info: "&7Arena &e<arena> &8| &fworld=&e<world> &8| &fstate=&e<state> &8| &fready=&e<ready>\n&7Spawn A: &f<spawnA> &8| &7Spawn B: &f<spawnB>"
   reload: "&aArena configuration reloaded. &7Loaded: &f<count>"
+  reload-blocked: "&cCannot reload arenas while a match is using an arena."
   reset-blocked: "&cThe arena is not currently in use."
