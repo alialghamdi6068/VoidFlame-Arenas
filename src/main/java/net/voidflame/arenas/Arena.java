@@ -12,6 +12,8 @@ public final class Arena {
     private Location spawnB;
     private ArenaState state;
     private boolean enabled;
+    private String template;
+    private int templateX, templateY, templateZ;
 
     public Arena(String name, World world, Location spawnA, Location spawnB, boolean enabled) {
         this.name = Objects.requireNonNull(name).trim();
@@ -29,6 +31,17 @@ public final class Arena {
     public synchronized Location spawnB() { return cloneLocation(spawnB); }
     public synchronized ArenaState state() { return state; }
     public synchronized boolean enabled() { return enabled; }
+    public synchronized String template() { return template; }
+    public synchronized int templateX() { return templateX; }
+    public synchronized int templateY() { return templateY; }
+    public synchronized int templateZ() { return templateZ; }
+    public synchronized boolean hasTemplate() { return template != null && !template.isBlank(); }
+    public synchronized void setTemplate(String template, Location paste) {
+        if (template == null || template.isBlank() || paste == null || paste.getWorld() == null || !paste.getWorld().equals(world)) {
+            throw new IllegalArgumentException("Template and paste location must be valid and belong to the arena world");
+        }
+        this.template = template.trim(); this.templateX = paste.getBlockX(); this.templateY = paste.getBlockY(); this.templateZ = paste.getBlockZ();
+    }
 
     public synchronized void setSpawnA(Location location) {
         requireSameWorld(location);
