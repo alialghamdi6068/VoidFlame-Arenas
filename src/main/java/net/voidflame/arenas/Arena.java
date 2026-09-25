@@ -14,51 +14,67 @@ public final class Arena {
     private boolean enabled;
 
     public Arena(String name, World world, Location spawnA, Location spawnB, boolean enabled) {
-        this.name = Objects.requireNonNull(name);
+        this.name = Objects.requireNonNull(name).trim();
+        if (this.name.isBlank()) throw new IllegalArgumentException("Arena name cannot be blank");
         this.world = Objects.requireNonNull(world);
-        this.spawnA = spawnA == null ? null : spawnA.clone();
-        this.spawnB = spawnB == null ? null : spawnB.clone();
+        this.spawnA = cloneLocation(spawnA);
+        this.spawnB = cloneLocation(spawnB);
         this.enabled = enabled;
         this.state = enabled ? ArenaState.AVAILABLE : ArenaState.DISABLED;
     }
 
     public String name() { return name; }
     public World world() { return world; }
-    public Location spawnA() { return spawnA == null ? null : spawnA.clone(); }
-    public Location spawnB() { return spawnB == null ? null : spawnB.clone(); }
-    public ArenaState state() { return state; }
-    public boolean enabled() { return enabled; }
+    public synchronized Location spawnA() { return cloneLocation(spawnA); }
+    public synchronized Location spawnB() { return cloneLocation(spawnB); }
+    public synchronized ArenaState state() { return state; }
+    public synchronized boolean enabled() { return enabled; }
 
-    public void setSpawnA(Location location) { spawnA = location == null ? null : location.clone(); }
-    public void setSpawnB(Location location) { spawnB = location == null ? null : location.clone(); }
+    public synchronized void setSpawnA(Location location) {
+        requireSameWorld(location);
+        spawnA = cloneLocation(location);
+    }
 
-    public boolean isConfigured() {
+    public synchronized void setSpawnB(Location location) {
+        requireSameWorld(location);
+        spawnB = cloneLocation(location);
+    }
+
+    public synchronized boolean isConfigured() {
         return spawnA != null && spawnB != null;
     }
 
-    public boolean acquire() {
+    public synchronized boolean acquire() {
         if (!enabled || state != ArenaState.AVAILABLE || !isConfigured()) return false;
         state = ArenaState.IN_USE;
         return true;
     }
 
-    public void release() {
+    public synchronized void release() {
         state = enabled ? ArenaState.AVAILABLE : ArenaState.DISABLED;
     }
 
-    public void disable() {
+    public synchronized void disable() {
         enabled = false;
         state = ArenaState.DISABLED;
     }
 
-    public void enable() {
+    public synchronized void enable() {
         enabled = true;
-        state = state == ArenaState.IN_USE ? ArenaState.IN_USE : ArenaState.AVAILABLE;
+        if (state != ArenaState.IN_USE) state = ArenaState.AVAILABLE;
     }
 
-    public Arena copy() {
-        Arena copy = new Arena(name, world, spawnA, spawnB, enabled);
-        copy.state = state;
-        return copy;
+    public synchronized boolean isReady() {
+        return enabled && state == ArenaState.AVAILABLE && isConfigured();
+    }
+
+    private void requireSameWorld(Location location) {
+        if (location == null || location.getWorld() == null || !location.getWorld().equals(world)) {
+            throw new IllegalArgumentException("Spawn must belong to arena world");
+        }
+    }
+
+    private static Location cloneLocation(Location location) {
+        return location == null ? null : location.clone();
     }
 }
