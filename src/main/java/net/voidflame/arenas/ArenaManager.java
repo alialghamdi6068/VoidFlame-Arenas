@@ -23,17 +23,19 @@ public final class ArenaManager {
         FileConfiguration config = plugin.getConfig();
         ConfigurationSection section = config.getConfigurationSection("arenas");
         if (section != null) {
-            for (String name : section.getKeys(false)) {
-                ConfigurationSection arena = section.getConfigurationSection(name);
-                if (arena == null) continue;
-                World world = Bukkit.getWorld(arena.getString("world", ""));
+            var list = section.getMapList("list");
+            for (var raw : list) {
+                if (!(raw instanceof Map<?, ?> map)) continue;
+                String name = String.valueOf(map.getOrDefault("name", ""));
+                World world = Bukkit.getWorld(String.valueOf(map.getOrDefault("world", "")));
                 if (world == null) {
                     plugin.getLogger().warning("Skipping arena '" + name + "': world is not loaded.");
                     continue;
                 }
-                Location a = readLocation(arena.getConfigurationSection("spawn-a"), world);
-                Location b = readLocation(arena.getConfigurationSection("spawn-b"), world);
-                arenas.put(normalize(name), new Arena(name, world, a, b, arena.getBoolean("enabled", true)));
+                Location a = readMapLocation(map.get("spawn-a"), world);
+                Location b = readMapLocation(map.get("spawn-b"), world);
+                boolean enabled = !map.containsKey("enabled") || Boolean.parseBoolean(String.valueOf(map.get("enabled")));
+                if (!name.isBlank()) arenas.put(normalize(name), new Arena(name, world, a, b, enabled));
             }
         }
         if (config.getBoolean("settings.auto-discover-worlds", false)) {
@@ -125,14 +127,17 @@ public final class ArenaManager {
 
     public void save() {
         if (!plugin.getConfig().getBoolean("settings.persist-to-file", true)) return;
-        plugin.getConfig().set("arenas", null);
+        List<Map<String, Object>> list = new ArrayList<>();
         for (Arena arena : arenas.values()) {
-            String base = "arenas." + arena.name();
-            plugin.getConfig().set(base + ".world", arena.world().getName());
-            plugin.getConfig().set(base + ".enabled", arena.enabled());
-            writeLocation(base + ".spawn-a", arena.spawnA());
-            writeLocation(base + ".spawn-b", arena.spawnB());
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("name", arena.name());
+            data.put("world", arena.world().getName());
+            data.put("enabled", arena.enabled());
+            data.put("spawn-a", toMap(arena.spawnA()));
+            data.put("spawn-b", toMap(arena.spawnB()));
+            list.add(data);
         }
+        plugin.getConfig().set("arenas.list", list);
         plugin.saveConfig();
     }
 
@@ -146,16 +151,28 @@ public final class ArenaManager {
                 (float) section.getDouble("pitch"));
     }
 
-    private void writeLocation(String path, Location location) {
-        if (location == null) {
-            plugin.getConfig().set(path, null);
-            return;
-        }
-        plugin.getConfig().set(path + ".x", location.getX());
-        plugin.getConfig().set(path + ".y", location.getY());
-        plugin.getConfig().set(path + ".z", location.getZ());
-        plugin.getConfig().set(path + ".yaw", location.getYaw());
-        plugin.getConfig().set(path + ".pitch", location.getPitch());
+    private Location readMapLocation(Object raw, World world) {
+        if (!(raw instanceof Map<?, ?> map)) return null;
+        return new Location(world,
+                number(map.get("x")), number(map.get("y")), number(map.get("z")),
+                (float) number(map.get("yaw")), (float) number(map.get("pitch")));
+    }
+
+    private Map<String, Object> toMap(Location location) {
+        if (location == null) return null;
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("x", location.getX());
+        map.put("y", location.getY());
+        map.put("z", location.getZ());
+        map.put("yaw", location.getYaw());
+        map.put("pitch", location.getPitch());
+        return map;
+    }
+
+    private double number(Object value) {
+        if (value instanceof Number number) return number.doubleValue();
+        try { return Double.parseDouble(String.valueOf(value)); }
+        catch (Exception ignored) { return 0.0; }
     }
 
     private String normalize(String name) {
