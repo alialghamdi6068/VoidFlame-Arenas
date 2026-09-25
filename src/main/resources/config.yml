@@ -1,6 +1,9 @@
 settings:
-  auto-discover-worlds: false
+  auto-discover-worlds: true
   discovery-name-prefix: "Arena-"
+  discovery-world-name-contains:
+    - "duel"
+    - "arena"
   persist-to-file: true
   command-permission: "voidflame.arenas.admin"
 
@@ -10,23 +13,15 @@ arenas:
   # Example:
   # - name: Arena-1
   #   world: duels
-  #   spawn-a:
-  #     x: 0.5
-  #     y: 100
-  #     z: 0.5
-  #     yaw: 90
-  #     pitch: 0
-  #   spawn-b:
-  #     x: 20.5
-  #     y: 100
-  #     z: 0.5
-  #     yaw: -90
-  #     pitch: 0
+  #   enabled: true
+  #   spawn-a: {x: 0.5, y: 100, z: 0.5, yaw: 90, pitch: 0}
+  #   spawn-b: {x: 20.5, y: 100, z: 0.5, yaw: -90, pitch: 0}
 
 messages:
   prefix: "&8[&bVoidFlame-Arenas&8] "
   no-permission: "&cYou do not have permission."
-  usage: "&7Usage: &f/arena <list|info|create|delete|setspawn|enable|disable|reset>"
+  player-only: "&cThis command can only be used by a player."
+  usage: "&7Usage: &f/arena <list|info|create|delete|setspawn|enable|disable|reset|reload>"
   not-found: "&cArena not found: &e<arena>"
   already-exists: "&cAn arena with that name already exists."
   created: "&aArena created: &e<arena>"
@@ -34,11 +29,11 @@ messages:
   enabled: "&aArena enabled: &e<arena>"
   disabled: "&aArena disabled: &e<arena>"
   in-use: "&cArena is currently in use."
-  reset: "&aArena released and reset state: &e<arena>"
-  invalid-world: "&cWorld not found: &e<world>"
-  spawn-set: "&aSpawn &e<spawn> &aset for &e<arena>&a."
-  invalid-spawn: "&cSet both spawns before using this arena."
+  reset: "&aArena released: &e<arena>"
+  invalid-spawn: "&cThe spawn must belong to the arena's configured world."
   list-empty: "&7No arenas are configured."
-  list-entry: "&7- &e<arena> &8| &f<world> &8| &7<state> &8| &7enabled=&f<enabled>"
-  info: "&7Arena &e<arena> &7world=&f<world> &7state=&f<state> &7spawnA=&f<spawnA> &7spawnB=&f<spawnB>"
-  reset-blocked: "&cThe arena cannot be reset while it is in use."
+  list-header: "&bArenas &7(&f<total>&7) &8| &aavailable=&f<available> &8| &cused=&f<used> &8| &7disabled=&f<disabled>"
+  list-entry: "&7- &e<arena> &8| &f<world> &8| &7<state> &8| &7ready=&f<ready>"
+  info: "&7Arena &e<arena> &8| &fworld=&e<world> &8| &fstate=&e<state> &8| &fready=&e<ready>\n&7Spawn A: &f<spawnA> &8| &7Spawn B: &f<spawnB>"
+  reload: "&aArena configuration reloaded. &7Loaded: &f<count>"
+  reset-blocked: "&cThe arena is not currently in use."
