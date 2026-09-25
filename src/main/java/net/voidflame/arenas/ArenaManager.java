@@ -26,8 +26,8 @@ public final class ArenaManager {
             var list = section.getMapList("list");
             for (var raw : list) {
                 if (!(raw instanceof Map<?, ?> map)) continue;
-                String name = String.valueOf(map.getOrDefault("name", ""));
-                World world = Bukkit.getWorld(String.valueOf(map.getOrDefault("world", "")));
+                String name = String.valueOf(map.containsKey("name") ? map.get("name") : "");
+                World world = Bukkit.getWorld(String.valueOf(map.containsKey("world") ? map.get("world") : ""));
                 if (world == null) {
                     plugin.getLogger().warning("Skipping arena '" + name + "': world is not loaded.");
                     continue;
@@ -38,7 +38,7 @@ public final class ArenaManager {
                 if (!name.isBlank()) arenas.put(normalize(name), new Arena(name, world, a, b, enabled));
             }
         }
-        if (config.getBoolean("settings.auto-discover-worlds", false)) {
+        if (config.getBoolean("arenas.auto-discover-worlds", false)) {
             discoverWorlds();
         }
         save();
