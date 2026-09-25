@@ -6,6 +6,7 @@ settings:
     - "arena"
   persist-to-file: true
   command-permission: "voidflame.arenas.admin"
+  reset-entity-radius: 64.0
 
 arenas:
   auto-discover-worlds: true
@@ -16,6 +17,8 @@ arenas:
   #   enabled: true
   #   spawn-a: {x: 0.5, y: 100, z: 0.5, yaw: 90, pitch: 0}
   #   spawn-b: {x: 20.5, y: 100, z: 0.5, yaw: -90, pitch: 0}
+  #   template: "crystal-arena.schem"
+  #   template-paste: {x: 0, y: 90, z: 0}
 
 messages:
   prefix: "&8[&bVoidFlame-Arenas&8] "
