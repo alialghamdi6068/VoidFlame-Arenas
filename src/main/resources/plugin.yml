@@ -1,0 +1,19 @@
+name: VoidFlame-Arenas
+version: 1.0.0
+main: net.voidflame.arenas.VoidFlameArenasPlugin
+description: Professional arena management system for VoidFlame MC.
+author: VoidFlame
+website: https://github.com/alialghamdi6068/VoidFlame-Arenas
+api-version: '26.2'
+load: POSTWORLD
+
+commands:
+  arena:
+    description: Manage VoidFlame arenas.
+    usage: /arena <list|info|create|delete|setspawn|enable|disable|reset>
+    permission: voidflame.arenas.admin
+
+permissions:
+  voidflame.arenas.admin:
+    description: Administrative access to VoidFlame arena management.
+    default: op
