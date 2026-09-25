@@ -110,8 +110,10 @@ public final class ArenaCommand implements CommandExecutor, TabCompleter {
     }
 
     private void reload(CommandSender sender) {
-        plugin.reloadConfig();
-        manager.load();
+        if (!manager.reload()) {
+            sender.sendMessage(msg("reload-blocked"));
+            return;
+        }
         sender.sendMessage(msg("reload").replace("<count>", String.valueOf(manager.all().size())));
     }
 
