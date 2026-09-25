@@ -6,6 +6,7 @@ author: VoidFlame
 website: https://github.com/alialghamdi6068/VoidFlame-Arenas
 api-version: '26.2'
 load: POSTWORLD
+depend: [VoidFlame-Core]
 
 commands:
   arena:
