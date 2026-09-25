@@ -2,10 +2,26 @@ settings:
   auto-discover-worlds: false
   discovery-name-prefix: "Arena-"
   persist-to-file: true
-  reset-world-on-release: false
   command-permission: "voidflame.arenas.admin"
 
-arenas: {}
+arenas:
+  auto-discover-worlds: true
+  list: []
+  # Example:
+  # - name: Arena-1
+  #   world: duels
+  #   spawn-a:
+  #     x: 0.5
+  #     y: 100
+  #     z: 0.5
+  #     yaw: 90
+  #     pitch: 0
+  #   spawn-b:
+  #     x: 20.5
+  #     y: 100
+  #     z: 0.5
+  #     yaw: -90
+  #     pitch: 0
 
 messages:
   prefix: "&8[&bVoidFlame-Arenas&8] "
