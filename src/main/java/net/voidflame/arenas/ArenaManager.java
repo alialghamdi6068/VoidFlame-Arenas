@@ -59,6 +59,13 @@ public final class ArenaManager {
         return Optional.ofNullable(arenas.get(normalize(name)));
     }
 
+    public synchronized boolean reload() {
+        if (inUseCount() > 0) return false;
+        plugin.reloadConfig();
+        load();
+        return true;
+    }
+
     public synchronized Optional<Arena> acquireAvailable() {
         return all().stream().filter(Arena::isReady).filter(Arena::acquire).findFirst();
     }
