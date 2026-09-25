@@ -137,6 +137,13 @@ public final class ArenaManager {
             data.put("enabled", arena.enabled());
             data.put("spawn-a", writeLocation(arena.spawnA()));
             data.put("spawn-b", writeLocation(arena.spawnB()));
+            if (arena.hasTemplate()) {
+                data.put("template", arena.template());
+                Map<String, Object> paste = new LinkedHashMap<>();
+                paste.put("x", arena.templateX()); paste.put("y", arena.templateY()); paste.put("z", arena.templateZ());
+                paste.put("yaw", 0f); paste.put("pitch", 0f);
+                data.put("template-paste", paste);
+            }
             list.add(data);
         }
         plugin.getConfig().set("arenas.list", list);
