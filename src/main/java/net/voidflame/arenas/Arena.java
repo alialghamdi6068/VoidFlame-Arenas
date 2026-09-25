@@ -67,6 +67,15 @@ public final class Arena {
         state = enabled ? ArenaState.AVAILABLE : ArenaState.DISABLED;
     }
 
+    public synchronized void beginReset() {
+        if (!enabled) { state = ArenaState.DISABLED; return; }
+        state = ArenaState.RESETTING;
+    }
+
+    public synchronized void finishReset(boolean success) {
+        state = success && enabled ? ArenaState.AVAILABLE : ArenaState.DISABLED;
+    }
+
     public synchronized void disable() {
         enabled = false;
         state = ArenaState.DISABLED;
