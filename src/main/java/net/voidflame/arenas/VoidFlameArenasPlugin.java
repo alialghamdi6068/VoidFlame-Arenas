@@ -10,6 +10,7 @@ public final class VoidFlameArenasPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         saveDefaultConfig();
+
         arenaManager = new ArenaManager(this);
         arenaManager.load();
 
@@ -20,13 +21,19 @@ public final class VoidFlameArenasPlugin extends JavaPlugin {
             command.setTabCompleter(handler);
         }
 
-        getServer().getServicesManager().register(ArenaManager.class, arenaManager, this, ServicePriority.Normal);
-        getLogger().info("VoidFlame-Arenas enabled with " + arenaManager.all().size() + " arenas.");
+        getServer().getServicesManager().register(
+                ArenaManager.class, arenaManager, this, ServicePriority.Normal);
+
+        getLogger().info("VoidFlame-Arenas enabled | arenas=" + arenaManager.all().size()
+                + " | available=" + arenaManager.availableCount());
     }
 
     @Override
     public void onDisable() {
-        if (arenaManager != null) arenaManager.releaseAll();
+        if (arenaManager != null) {
+            arenaManager.releaseAll();
+            getServer().getServicesManager().unregister(ArenaManager.class, arenaManager);
+        }
     }
 
     public ArenaManager arenaManager() {
