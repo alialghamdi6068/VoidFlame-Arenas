@@ -1,5 +1,6 @@
 package net.voidflame.arenas;
 
+import net.voidflame.core.api.ArenaService;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -10,7 +11,7 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
-public final class ArenaManager {
+public final class ArenaManager implements ArenaService {
     private final JavaPlugin plugin;
     private final Map<String, Arena> arenas = new ConcurrentHashMap<>();
     private final ArenaResetService resetService;
@@ -224,6 +225,23 @@ public final class ArenaManager {
         plugin.getConfig().set("arenas.list", list);
         plugin.saveConfig();
     }
+
+    @Override
+    public synchronized Optional<ArenaService.ArenaHandle> acquireAvailable() {
+        return acquireAvailable().map(arena ->
+                new ArenaService.ArenaHandle(arena.name(), arena.spawnA(), arena.spawnB()));
+    }
+
+    @Override
+    public CompletableFuture<Boolean> reset(String arenaName) {
+        return reset(arenaName);
+    }
+
+    @Override
+    public int availableCount() { return (int) all().stream().filter(Arena::isReady).count(); }
+
+    @Override
+    public List<String> allNames() { return all().stream().map(Arena::name).toList(); }
 
     public long availableCount() { return all().stream().filter(Arena::isReady).count(); }
     public long inUseCount() { return all().stream().filter(a -> a.state() == ArenaState.IN_USE).count(); }
