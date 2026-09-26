@@ -233,16 +233,9 @@ public final class ArenaManager implements ArenaService {
     }
 
     @Override
-    public CompletableFuture<Boolean> reset(String arenaName) {
-        return reset(arenaName);
-    }
-
-    @Override
-    public int availableCount() { return (int) all().stream().filter(Arena::isReady).count(); }
-
-    @Override
     public List<String> allNames() { return all().stream().map(Arena::name).toList(); }
 
+    @Override
     public long availableCount() { return all().stream().filter(Arena::isReady).count(); }
     public long inUseCount() { return all().stream().filter(a -> a.state() == ArenaState.IN_USE).count(); }
     public long resettingCount() { return all().stream().filter(a -> a.state() == ArenaState.RESETTING).count(); }
