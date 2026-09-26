@@ -1,5 +1,6 @@
 package net.voidflame.arenas;
 
+import net.voidflame.core.api.ArenaService;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -23,6 +24,8 @@ public final class VoidFlameArenasPlugin extends JavaPlugin {
 
         getServer().getServicesManager().register(
                 ArenaManager.class, arenaManager, this, ServicePriority.Normal);
+        getServer().getServicesManager().register(
+                ArenaService.class, arenaManager, this, ServicePriority.Normal);
 
         getLogger().info("VoidFlame-Arenas enabled | arenas=" + arenaManager.all().size()
                 + " | available=" + arenaManager.availableCount());
@@ -33,6 +36,7 @@ public final class VoidFlameArenasPlugin extends JavaPlugin {
         if (arenaManager != null) {
             arenaManager.releaseAll();
             getServer().getServicesManager().unregister(ArenaManager.class, arenaManager);
+            getServer().getServicesManager().unregister(ArenaService.class, arenaManager);
         }
     }
 
