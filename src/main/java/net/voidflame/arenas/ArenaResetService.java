@@ -93,7 +93,54 @@ public final class ArenaResetService {
         operationsClass.getMethod("complete", Class.forName("com.sk89q.worldedit.function.operation.Operation"))
                 .invoke(null, operation);
         editSession.getClass().getMethod("close").invoke(editSession);
+        if (plugin.getConfig().getBoolean("settings.verify-after-reset", true)) {
+            return verifyPaste(arena, clipboard, vector, vectorClass);
+        }
         return true;
+    }
+
+
+    private boolean verifyPaste(Arena arena, Object clipboard, Object pasteVector, Class<?> vectorClass) {
+        try {
+            int sampleSize = Math.max(1, plugin.getConfig().getInt("settings.verify-sample-size", 256));
+            Object dimensions = clipboard.getClass().getMethod("getDimensions").invoke(clipboard);
+            Object origin = clipboard.getClass().getMethod("getOrigin").invoke(clipboard);
+            int dx = (int) dimensions.getClass().getMethod("getX").invoke(dimensions);
+            int dy = (int) dimensions.getClass().getMethod("getY").invoke(dimensions);
+            int dz = (int) dimensions.getClass().getMethod("getZ").invoke(dimensions);
+            int ox = (int) origin.getClass().getMethod("getBlockX").invoke(origin);
+            int oy = (int) origin.getClass().getMethod("getBlockY").invoke(origin);
+            int oz = (int) origin.getClass().getMethod("getBlockZ").invoke(origin);
+            var world = arena.world();
+            int checked = 0;
+            int total = Math.max(1, dx * dy * dz);
+            int stride = Math.max(1, total / sampleSize);
+            for (int index = 0; index < total && checked < sampleSize; index += stride) {
+                int x = index % dx;
+                int yz = index / dx;
+                int z = yz % dz;
+                int y = yz / dz;
+                Object point = vectorClass.getMethod("at", int.class, int.class, int.class)
+                        .invoke(null, arena.templateX() + x - ox, arena.templateY() + y - oy, arena.templateZ() + z - oz);
+                Object expectedBlock = clipboard.getClass().getMethod("getBlock", vectorClass).invoke(clipboard, vectorClass.getMethod("at", int.class, int.class, int.class)
+                        .invoke(null, x, y, z));
+                Object expectedType = expectedBlock.getClass().getMethod("getBlockType").invoke(expectedBlock);
+                Object expectedMaterial = Class.forName("com.sk89q.worldedit.bukkit.BukkitAdapter")
+                        .getMethod("adapt", Class.forName("com.sk89q.worldedit.world.block.BlockType"))
+                        .invoke(null, expectedType);
+                if (expectedMaterial instanceof org.bukkit.Material material
+                        && world.getBlockAt((int) point.getClass().getMethod("getBlockX").invoke(point),
+                        (int) point.getClass().getMethod("getBlockY").invoke(point),
+                        (int) point.getClass().getMethod("getBlockZ").invoke(point)).getType() != material) {
+                    return false;
+                }
+                checked++;
+            }
+            return checked > 0;
+        } catch (Exception ex) {
+            plugin.getLogger().warning("Arena verification failed for " + arena.name() + ": " + ex.getMessage());
+            return false;
+        }
     }
 
     private void clearEntities(Arena arena) {
