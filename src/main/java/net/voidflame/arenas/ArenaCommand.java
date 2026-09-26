@@ -105,8 +105,20 @@ public final class ArenaCommand implements CommandExecutor, TabCompleter {
 
     private void reset(CommandSender sender, String[] args) {
         if (args.length < 2) { sender.sendMessage(msg("usage")); return; }
-        if (!manager.reset(args[1])) { sender.sendMessage(msg("reset-blocked")); return; }
-        sender.sendMessage(msg("reset").replace("<arena>", args[1]));
+        var found = manager.find(args[1]);
+        if (found.isEmpty()) { sender.sendMessage(msg("not-found").replace("<arena>", args[1])); return; }
+        Arena arena = found.get();
+        if (arena.state() != ArenaState.IN_USE) {
+            sender.sendMessage(msg("reset-blocked"));
+            return;
+        }
+        manager.reset(arena).thenAccept(success ->
+                plugin.getServer().getScheduler().runTask(plugin, () ->
+                        sender.sendMessage(msg(success ? "reset" : "reset-failed")
+                                .replace("<arena>", arena.name()))
+                )
+        );
+        sender.sendMessage(msg("reset-started").replace("<arena>", arena.name()));
     }
 
     private void reload(CommandSender sender) {
