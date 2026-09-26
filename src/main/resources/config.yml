@@ -7,18 +7,21 @@ settings:
   persist-to-file: true
   command-permission: "voidflame.arenas.admin"
   reset-entity-radius: 64.0
+  reset-timeout-seconds: 30
+  reset-retries: 2
+  verify-after-reset: true
+  verify-sample-size: 256
+  lock-during-reset: true
+  reject-acquire-during-reset: true
+  fail-state-on-reset-error: true
+  cleanup-items: true
+  cleanup-projectiles: true
+  cleanup-potions: true
+  cleanup-non-player-entities: true
 
 arenas:
   auto-discover-worlds: true
   list: []
-  # Example:
-  # - name: Arena-1
-  #   world: duels
-  #   enabled: true
-  #   spawn-a: {x: 0.5, y: 100, z: 0.5, yaw: 90, pitch: 0}
-  #   spawn-b: {x: 20.5, y: 100, z: 0.5, yaw: -90, pitch: 0}
-  #   template: "crystal-arena.schem"
-  #   template-paste: {x: 0, y: 90, z: 0}
 
 messages:
   prefix: "&8[&bVoidFlame-Arenas&8] "
@@ -35,9 +38,5 @@ messages:
   reset: "&aArena released: &e<arena>"
   invalid-spawn: "&cThe spawn must belong to the arena's configured world."
   list-empty: "&7No arenas are configured."
-  list-header: "&bArenas &7(&f<total>&7) &8| &aavailable=&f<available> &8| &cused=&f<used> &8| &7disabled=&f<disabled>"
-  list-entry: "&7- &e<arena> &8| &f<world> &8| &7<state> &8| &7ready=&f<ready>"
-  info: "&7Arena &e<arena> &8| &fworld=&e<world> &8| &fstate=&e<state> &8| &fready=&e<ready>\n&7Spawn A: &f<spawnA> &8| &7Spawn B: &f<spawnB>"
-  reload: "&aArena configuration reloaded. &7Loaded: &f<count>"
-  reload-blocked: "&cCannot reload arenas while a match is using an arena."
-  reset-blocked: "&cThe arena is not currently in use."\n  reset-started: "&eResetting arena: &f<arena>..."\n  reset-failed: "&cArena reset failed and the arena has been disabled: &e<arena>"
+  reset-started: "&eResetting arena: &f<arena>..."
+  reset-failed: "&cArena reset failed and the arena has been disabled: &e<arena>"
