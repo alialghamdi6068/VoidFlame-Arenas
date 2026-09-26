@@ -175,15 +175,18 @@ public final class ArenaManager {
      */
     public synchronized boolean release(Arena arena) {
         if (arena == null || arena.state() != ArenaState.IN_USE) return false;
+        if (arena.hasTemplate()) {
+            warn("Refusing unsafe release of templated arena '" + arena.name() + "'. Use reset instead.");
+            return false;
+        }
         arena.release();
         save();
         return true;
     }
 
-    public synchronized boolean reset(String name) {
+    public CompletableFuture<Boolean> reset(String name) {
         Optional<Arena> found = find(name);
-        if (found.isEmpty()) return false;
-        return reset(found.get()).join();
+        return found.map(this::reset).orElseGet(() -> CompletableFuture.completedFuture(false));
     }
 
     public synchronized void releaseAll() {
