@@ -40,4 +40,4 @@ messages:
   info: "&7Arena &e<arena> &8| &fworld=&e<world> &8| &fstate=&e<state> &8| &fready=&e<ready>\n&7Spawn A: &f<spawnA> &8| &7Spawn B: &f<spawnB>"
   reload: "&aArena configuration reloaded. &7Loaded: &f<count>"
   reload-blocked: "&cCannot reload arenas while a match is using an arena."
-  reset-blocked: "&cThe arena is not currently in use."
+  reset-blocked: "&cThe arena is not currently in use."\n  reset-started: "&eResetting arena: &f<arena>..."\n  reset-failed: "&cArena reset failed and the arena has been disabled: &e<arena>"
