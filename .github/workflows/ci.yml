@@ -1,10 +1,10 @@
 name: CI
-
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -18,3 +18,9 @@ jobs:
           cache: gradle
       - uses: gradle/actions/setup-gradle@v5
       - run: gradle clean test build --no-daemon
+      - name: Upload plugin
+        uses: actions/upload-artifact@v5
+        with:
+          name: VoidFlame-Arenas
+          path: build/libs/*.jar
+          if-no-files-found: error
