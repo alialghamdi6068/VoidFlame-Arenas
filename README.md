@@ -60,3 +60,5 @@ A successful acquireAvailable() transitions an arena to IN_USE. The consuming ma
 ## Typed Arena API
 
 VoidFlame-Arenas exposes the typed `net.voidflame.core.api.ArenaService` through Bukkit ServicesManager. Consumers can allocate and reset arenas without reflection.
+
+<!-- CI: Core verification dependency refreshed 2026-09-26 -->
