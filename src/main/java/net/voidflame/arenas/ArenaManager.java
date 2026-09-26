@@ -227,7 +227,7 @@ public final class ArenaManager implements ArenaService {
     }
 
     @Override
-    public synchronized Optional<ArenaService.ArenaHandle> acquireAvailable() {
+    public synchronized Optional<ArenaService.ArenaHandle> acquireHandle() {
         return acquireAvailable().map(arena ->
                 new ArenaService.ArenaHandle(arena.name(), arena.spawnA(), arena.spawnB()));
     }
