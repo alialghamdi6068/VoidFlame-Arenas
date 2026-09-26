@@ -56,3 +56,7 @@ Other VoidFlame plugins can obtain ArenaManager through Bukkit ServicesManager a
 - release(name)
 
 A successful acquireAvailable() transitions an arena to IN_USE. The consuming match system must release it when the match ends or is cancelled.
+
+## Typed Arena API
+
+VoidFlame-Arenas exposes the typed `net.voidflame.core.api.ArenaService` through Bukkit ServicesManager. Consumers can allocate and reset arenas without reflection.
