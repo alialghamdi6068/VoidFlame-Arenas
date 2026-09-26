@@ -13,9 +13,15 @@ commands:
   arena:
     description: Manage VoidFlame arenas.
     usage: /arena <list|info|create|delete|setspawn|enable|disable|reset>
-    permission: voidflame.arenas.admin
+    permission: voidflame.arena.manage
 
 permissions:
-  voidflame.arenas.admin:
-    description: Administrative access to VoidFlame arena management.
+  voidflame.arena.manage:
+    description: Manage practice arenas.
+    default: op
+  voidflame.arena.reset:
+    description: Reset practice arenas.
+    default: op
+  voidflame.arena.bypass:
+    description: Bypass arena protection for staff.
     default: op
