@@ -151,18 +151,29 @@ public final class ArenaManager implements ArenaService {
             save();
         }
 
-        return resetService.reset(arena).handle((success, error) -> {
-            boolean ok = Boolean.TRUE.equals(success) && error == null;
-            synchronized (this) {
-                arena.finishReset(ok);
-                save();
-            }
-            if (!ok) {
-                warn("Arena '" + arena.name() + "' failed reset and has been disabled: " +
-                        (error == null ? "template restore returned false" : error.getMessage()));
-            }
-            return ok;
-        });
+        int retries = Math.max(0, plugin.getConfig().getInt("settings.reset-retries", 2));
+        return performReset(arena, retries);
+    }
+
+    private CompletableFuture<Boolean> performReset(Arena arena, int retriesLeft) {
+        long timeoutSeconds = Math.max(1L, plugin.getConfig().getLong("settings.reset-timeout-seconds", 30L));
+        return resetService.reset(arena)
+                .orTimeout(timeoutSeconds, java.util.concurrent.TimeUnit.SECONDS)
+                .handle((success, error) -> {
+                    boolean ok = Boolean.TRUE.equals(success) && error == null;
+                    if (ok) {
+                        synchronized (this) { arena.finishReset(true); save(); }
+                        return CompletableFuture.completedFuture(true);
+                    }
+                    if (retriesLeft > 0) {
+                        warn("Arena '" + arena.name() + "' reset failed; retrying (" + retriesLeft + " remaining).");
+                        return performReset(arena, retriesLeft - 1);
+                    }
+                    synchronized (this) { arena.finishReset(false); save(); }
+                    warn("Arena '" + arena.name() + "' failed reset and has been disabled: " +
+                            (error == null ? "template restore returned false" : error.getMessage()));
+                    return CompletableFuture.completedFuture(false);
+                }).thenCompose(java.util.function.Function.identity());
     }
 
     public synchronized boolean release(String name) {
