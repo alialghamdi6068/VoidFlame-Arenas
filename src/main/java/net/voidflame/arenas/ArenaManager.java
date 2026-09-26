@@ -1,6 +1,7 @@
 package net.voidflame.arenas;
 
 import net.voidflame.core.api.ArenaService;
+import net.voidflame.core.api.AuditLogService;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -163,6 +164,7 @@ public final class ArenaManager implements ArenaService {
                     boolean ok = Boolean.TRUE.equals(success) && error == null;
                     if (ok) {
                         synchronized (this) { arena.finishReset(true); save(); }
+                        audit("ARENA_RESET_SUCCESS", arena.name(), "verified=true");
                         return CompletableFuture.completedFuture(true);
                     }
                     if (retriesLeft > 0) {
@@ -170,6 +172,7 @@ public final class ArenaManager implements ArenaService {
                         return performReset(arena, retriesLeft - 1);
                     }
                     synchronized (this) { arena.finishReset(false); save(); }
+                    audit("ARENA_RESET_FAILURE", arena.name(), "verified=false");
                     warn("Arena '" + arena.name() + "' failed reset and has been disabled: " +
                             (error == null ? "template restore returned false" : error.getMessage()));
                     return CompletableFuture.completedFuture(false);
@@ -251,6 +254,13 @@ public final class ArenaManager implements ArenaService {
     public long inUseCount() { return all().stream().filter(a -> a.state() == ArenaState.IN_USE).count(); }
     public long resettingCount() { return all().stream().filter(a -> a.state() == ArenaState.RESETTING).count(); }
     public long disabledCount() { return all().stream().filter(a -> a.state() == ArenaState.DISABLED).count(); }
+
+    private void audit(String action, String target, String metadata) {
+        var registration = Bukkit.getServicesManager().getRegistration(AuditLogService.class);
+        if (registration != null && registration.getProvider() != null) {
+            registration.getProvider().log("SYSTEM", action, target, metadata);
+        }
+    }
 
     private void register(Arena arena) {
         if (arenas.putIfAbsent(normalize(arena.name()), arena) != null) {
