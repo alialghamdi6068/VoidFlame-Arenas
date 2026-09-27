@@ -9,6 +9,7 @@ settings:
   reset-entity-radius: 64.0
   reset-timeout-seconds: 30
   reset-retries: 2
+  startup-reset-retries: 2
   verify-after-reset: true
   verify-sample-size: 256
   lock-during-reset: true
