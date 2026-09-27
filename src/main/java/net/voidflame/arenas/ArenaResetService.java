@@ -40,8 +40,8 @@ public final class ArenaResetService {
         }
         return CompletableFuture.supplyAsync(() -> {
             try {
-                Bukkit.getScheduler().callSyncMethod(plugin, () -> paste(arena)).get();
-                return true;
+                Boolean verified = Bukkit.getScheduler().callSyncMethod(plugin, () -> paste(arena)).get();
+                return Boolean.TRUE.equals(verified);
             } catch (Exception ex) {
                 plugin.getLogger().severe("Arena reset failed for " + arena.name() + ": " + ex.getMessage());
                 return false;
@@ -81,7 +81,12 @@ public final class ArenaResetService {
         Object worldEdit = worldEditClass.getMethod("getInstance").invoke(null);
         Object editSession = worldEditClass.getMethod("newEditSession", Class.forName("com.sk89q.worldedit.world.World")).invoke(worldEdit, weWorld);
 
-        clearEntities(arena);
+        if (plugin.getConfig().getBoolean("settings.cleanup-non-player-entities", true)
+                || plugin.getConfig().getBoolean("settings.cleanup-items", true)
+                || plugin.getConfig().getBoolean("settings.cleanup-projectiles", true)
+                || plugin.getConfig().getBoolean("settings.cleanup-potions", true)) {
+            clearEntities(arena);
+        }
 
         Object holder = holderClass.getConstructor(clipboardClass).newInstance(clipboard);
         Object pasteBuilder = holderClass.getMethod("createPaste", Class.forName("com.sk89q.worldedit.EditSession")).invoke(holder, editSession);
@@ -149,7 +154,16 @@ public final class ArenaResetService {
         double radiusSquared = radius * radius;
         for (Entity entity : center.getWorld().getEntities()) {
             if (entity instanceof Player) continue;
-            if (entity.getLocation().distanceSquared(center) <= radiusSquared) entity.remove();
+            if (entity.getLocation().distanceSquared(center) > radiusSquared) continue;
+            if (entity instanceof org.bukkit.entity.Item
+                    && !plugin.getConfig().getBoolean("settings.cleanup-items", true)) continue;
+            if ((entity instanceof org.bukkit.entity.Projectile || entity instanceof org.bukkit.entity.Firework)
+                    && !plugin.getConfig().getBoolean("settings.cleanup-projectiles", true)) continue;
+            if (entity instanceof org.bukkit.entity.ThrownPotion
+                    && !plugin.getConfig().getBoolean("settings.cleanup-potions", true)) continue;
+            if (!entity.getType().isAlive()
+                    && !plugin.getConfig().getBoolean("settings.cleanup-non-player-entities", true)) continue;
+            entity.remove();
         }
     }
 }
