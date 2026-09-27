@@ -43,6 +43,7 @@ public final class ArenaManager implements ArenaService {
                 Location paste = readLocation(raw.get("template-paste"), world);
                 if (!template.isBlank() && paste != null) {
                     arena.setTemplate(template, paste);
+                    if (arena.enabled()) arena.beginReset();
                 }
                 register(arena);
             } catch (IllegalArgumentException ex) {
@@ -52,6 +53,40 @@ public final class ArenaManager implements ArenaService {
 
         if (config.getBoolean("arenas.auto-discover-worlds", false)) discoverWorlds();
         save();
+        for (Arena arena : all()) {
+            if (arena.hasTemplate() && arena.state() == ArenaState.RESETTING) {
+                Bukkit.getScheduler().runTaskLater(plugin, () -> startupRestore(arena), 1L);
+            }
+        }
+    }
+
+    private void startupRestore(Arena arena) {
+        int retries = Math.max(0, plugin.getConfig().getInt("settings.startup-reset-retries",
+                plugin.getConfig().getInt("settings.reset-retries", 2)));
+        startupRestoreAttempt(arena, retries);
+    }
+
+    private void startupRestoreAttempt(Arena arena, int retriesLeft) {
+        long timeoutSeconds = Math.max(1L, plugin.getConfig().getLong("settings.reset-timeout-seconds", 30L));
+        resetService.reset(arena)
+                .orTimeout(timeoutSeconds, java.util.concurrent.TimeUnit.SECONDS)
+                .whenComplete((success, error) -> Bukkit.getScheduler().runTask(plugin, () -> {
+                    boolean ok = Boolean.TRUE.equals(success) && error == null;
+                    if (ok) {
+                        synchronized (this) { arena.finishReset(true); save(); }
+                        audit("ARENA_STARTUP_RESET_SUCCESS", arena.name(), "verified=true");
+                        return;
+                    }
+                    if (retriesLeft > 0) {
+                        warn("Startup restore failed for '" + arena.name() + "'; retrying (" +
+                                retriesLeft + " remaining).");
+                        startupRestoreAttempt(arena, retriesLeft - 1);
+                        return;
+                    }
+                    synchronized (this) { arena.finishReset(false); save(); }
+                    audit("ARENA_STARTUP_RESET_FAILURE", arena.name(), "verified=false");
+                    warn("Arena '" + arena.name() + "' was disabled because its startup restore failed.");
+                }));
     }
 
     public synchronized void discoverWorlds() {
@@ -205,9 +240,12 @@ public final class ArenaManager implements ArenaService {
     }
 
     public synchronized void releaseAll() {
-        arenas.values().stream()
-                .filter(a -> a.state() == ArenaState.IN_USE)
-                .forEach(Arena::release);
+        for (Arena arena : arenas.values()) {
+            if (arena.state() == ArenaState.IN_USE) {
+                if (arena.hasTemplate()) arena.disable();
+                else arena.release();
+            }
+        }
         save();
     }
 
