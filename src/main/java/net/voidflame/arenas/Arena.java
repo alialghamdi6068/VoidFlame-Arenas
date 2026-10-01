@@ -86,6 +86,14 @@ public final class Arena {
         if (state != ArenaState.IN_USE) state = ArenaState.AVAILABLE;
     }
 
+    public synchronized void recoverForStartup() {
+        if (!enabled) {
+            state = ArenaState.DISABLED;
+        } else if (state == ArenaState.IN_USE || state == ArenaState.RESETTING || state == ArenaState.ERROR) {
+            state = ArenaState.RESETTING;
+        }
+    }
+
     public synchronized boolean isReady() {
         return enabled && state == ArenaState.AVAILABLE && isConfigured();
     }
