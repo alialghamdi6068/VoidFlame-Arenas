@@ -166,6 +166,22 @@ public final class ArenaManager implements ArenaService {
         return true;
     }
 
+    public synchronized boolean setTemplate(String name, String template, Location paste) {
+        Optional<Arena> found = find(name);
+        if (found.isEmpty() || template == null || template.isBlank() || paste == null) return false;
+        Arena arena = found.get();
+        if (arena.state() == ArenaState.IN_USE || arena.state() == ArenaState.RESETTING) return false;
+        java.io.File file = new java.io.File(plugin.getDataFolder(), "templates/" + template.trim());
+        if (!file.isFile()) return false;
+        try {
+            arena.setTemplate(template.trim(), paste);
+        } catch (IllegalArgumentException ex) {
+            return false;
+        }
+        save();
+        return true;
+    }
+
     public synchronized boolean setEnabled(String name, boolean enabled) {
         Optional<Arena> found = find(name);
         if (found.isEmpty()) return false;
