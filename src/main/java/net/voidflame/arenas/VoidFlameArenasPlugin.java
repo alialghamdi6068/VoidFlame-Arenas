@@ -7,6 +7,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 public final class VoidFlameArenasPlugin extends JavaPlugin {
     private ArenaManager arenaManager;
+    private ArenaAdminMenu adminMenu;
 
     @Override
     public void onEnable() {
@@ -14,6 +15,8 @@ public final class VoidFlameArenasPlugin extends JavaPlugin {
 
         arenaManager = new ArenaManager(this);
         arenaManager.load();
+        adminMenu = new ArenaAdminMenu(this, arenaManager);
+        getServer().getPluginManager().registerEvents(adminMenu, this);
 
         PluginCommand command = getCommand("arena");
         if (command != null) {
@@ -39,6 +42,8 @@ public final class VoidFlameArenasPlugin extends JavaPlugin {
             getServer().getServicesManager().unregister(ArenaService.class, arenaManager);
         }
     }
+
+    public ArenaAdminMenu adminMenu() { return adminMenu; }
 
     public ArenaManager arenaManager() {
         return arenaManager;
