@@ -89,7 +89,7 @@ public final class Arena {
     public synchronized void recoverForStartup() {
         if (!enabled) {
             state = ArenaState.DISABLED;
-        } else if (state == ArenaState.IN_USE || state == ArenaState.RESETTING || state == ArenaState.ERROR) {
+        } else if (state == ArenaState.IN_USE || state == ArenaState.RESETTING) {
             state = hasTemplate() ? ArenaState.RESETTING : ArenaState.DISABLED;
         }
     }
