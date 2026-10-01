@@ -1,3 +1,4 @@
+# إعدادات إدارة الأرينا والـreset الأصلي بدون WorldEdit
 settings:
   auto-discover-worlds: true
   discovery-name-prefix: "Arena-"
@@ -11,7 +12,10 @@ settings:
   reset-retries: 2
   startup-reset-retries: 2
   verify-after-reset: true
-  verify-sample-size: 256
+  verify-sample-size: 128
+  # حجم منطقة الـsnapshot حول نقاط البداية، ويمكن تكبيره للأرينا الكبيرة.
+  snapshot-padding-xz: 32
+  snapshot-padding-y: 16
   lock-during-reset: true
   reject-acquire-during-reset: true
   fail-state-on-reset-error: true
