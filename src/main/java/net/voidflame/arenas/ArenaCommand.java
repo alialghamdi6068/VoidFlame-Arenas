@@ -10,7 +10,7 @@ import java.util.Locale;
 
 public final class ArenaCommand implements CommandExecutor, TabCompleter {
     private static final List<String> SUBCOMMANDS = List.of(
-            "list", "info", "create", "delete", "setspawn", "enable", "disable", "reset", "reload");
+            "list", "info", "create", "delete", "setspawn", "settemplate", "enable", "disable", "reset", "reload");
 
     private final VoidFlameArenasPlugin plugin;
     private final ArenaManager manager;
@@ -31,6 +31,7 @@ public final class ArenaCommand implements CommandExecutor, TabCompleter {
             case "create" -> create(sender, args);
             case "delete" -> action(sender, args, "delete");
             case "setspawn" -> setSpawn(sender, args);
+            case "settemplate" -> setTemplate(sender, args);
             case "enable" -> action(sender, args, "enable");
             case "disable" -> action(sender, args, "disable");
             case "reset" -> reset(sender, args);
@@ -73,6 +74,16 @@ public final class ArenaCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(msg("already-exists")); return;
         }
         sender.sendMessage(msg("created").replace("<arena>", args[1]));
+    }
+
+    private void setTemplate(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player player)) { sender.sendMessage(msg("player-only")); return; }
+        if (args.length < 3) { sender.sendMessage(msg("usage")); return; }
+        if (!manager.setTemplate(args[1], args[2], player.getLocation())) {
+            sender.sendMessage(msg("template-failed").replace("<arena>", args[1]));
+            return;
+        }
+        sender.sendMessage(msg("template-set").replace("<arena>", args[1]).replace("<template>", args[2]));
     }
 
     private void action(CommandSender sender, String[] args, String action) {
