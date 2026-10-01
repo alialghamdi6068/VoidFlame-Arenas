@@ -4,5 +4,6 @@ public enum ArenaState {
     AVAILABLE,
     IN_USE,
     RESETTING,
-    DISABLED
+    DISABLED,
+    ERROR
 }
