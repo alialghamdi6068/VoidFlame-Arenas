@@ -1,4 +1,9 @@
-# إعدادات إدارة الأرينا والـreset الأصلي بدون WorldEdit
+# ================================================================
+# VoidFlame Arenas • Production Configuration
+# Paper 26.2 • Java 25
+# ================================================================
+# Arena discovery, lifecycle locking, snapshot reset and verification.
+# Arena administration and native reset settings; no WorldEdit required.
 settings:
   auto-discover-worlds: true
   discovery-name-prefix: "Arena-"
