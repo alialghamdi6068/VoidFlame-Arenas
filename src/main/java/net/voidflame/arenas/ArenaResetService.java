@@ -43,9 +43,12 @@ public final class ArenaResetService {
         if (arena == null || !arena.isConfigured()) return CompletableFuture.completedFuture(false);
         return CompletableFuture.supplyAsync(() -> {
             try {
-                return Boolean.TRUE.equals(Bukkit.getScheduler().callSyncMethod(plugin, () -> restore(arena)).get());
+                boolean success = Boolean.TRUE.equals(Bukkit.getScheduler().callSyncMethod(plugin, () -> restore(arena)).get());
+                audit(success, arena);
+                return success;
             } catch (Exception ex) {
                 plugin.getLogger().severe("Native arena reset failed for " + arena.name() + ": " + ex.getMessage());
+                audit(false, arena);
                 return false;
             }
         });
@@ -123,6 +126,13 @@ public final class ArenaResetService {
                 new Location(world, minX, minY, minZ),
                 new Location(world, maxX, maxY, maxZ)
         };
+    }
+
+    private void audit(boolean success, Arena arena) {
+        var registration = Bukkit.getServicesManager().getRegistration(net.voidflame.core.api.AuditLogService.class);
+        if (registration == null || registration.getProvider() == null) return;
+        registration.getProvider().log("SYSTEM", success ? "ARENA_RESET_SUCCESS" : "ARENA_RESET_FAILURE",
+                arena.name(), "world=" + arena.world().getName());
     }
 
     private File snapshotFile(Arena arena) {
