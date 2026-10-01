@@ -62,7 +62,7 @@ public final class ArenaManager implements ArenaService {
         if (config.getBoolean("arenas.auto-discover-worlds", false)) discoverWorlds();
         save();
         for (Arena arena : all()) {
-            if (arena.hasTemplate() && arena.state() == ArenaState.RESETTING) {
+            if (arena.state() == ArenaState.RESETTING) {
                 Bukkit.getScheduler().runTaskLater(plugin, () -> startupRestore(arena), 1L);
             }
         }
@@ -201,10 +201,10 @@ public final class ArenaManager implements ArenaService {
 
         synchronized (this) {
             if (arena.state() != ArenaState.IN_USE) return CompletableFuture.completedFuture(false);
-            if (!arena.hasTemplate()) {
+            if (!resetService.prepare(arena)) {
                 arena.finishReset(false);
                 save();
-                warn("Arena '" + arena.name() + "' has no template; disabled after match instead of being reused.");
+                warn("Arena '" + arena.name() + "' has no valid native snapshot and was disabled.");
                 return CompletableFuture.completedFuture(false);
             }
             arena.beginReset();
@@ -249,10 +249,6 @@ public final class ArenaManager implements ArenaService {
      */
     public synchronized boolean release(Arena arena) {
         if (arena == null || arena.state() != ArenaState.IN_USE) return false;
-        if (arena.hasTemplate()) {
-            warn("Refusing unsafe release of templated arena '" + arena.name() + "'. Use reset instead.");
-            return false;
-        }
         arena.release();
         save();
         return true;
@@ -265,10 +261,7 @@ public final class ArenaManager implements ArenaService {
 
     public synchronized void releaseAll() {
         for (Arena arena : arenas.values()) {
-            if (arena.state() == ArenaState.IN_USE) {
-                if (arena.hasTemplate()) arena.disable();
-                else arena.release();
-            }
+            if (arena.state() == ArenaState.IN_USE) arena.disable();
         }
         save();
     }
