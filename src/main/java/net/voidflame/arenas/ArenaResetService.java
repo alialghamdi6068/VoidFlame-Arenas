@@ -161,8 +161,11 @@ public final class ArenaResetService {
                     && !plugin.getConfig().getBoolean("settings.cleanup-projectiles", true)) continue;
             if (entity instanceof org.bukkit.entity.ThrownPotion
                     && !plugin.getConfig().getBoolean("settings.cleanup-potions", true)) continue;
-            if (!entity.getType().isAlive()
-                    && !plugin.getConfig().getBoolean("settings.cleanup-non-player-entities", true)) continue;
+            if (!plugin.getConfig().getBoolean("settings.cleanup-non-player-entities", true)
+                    && !(entity instanceof org.bukkit.entity.Item)
+                    && !(entity instanceof org.bukkit.entity.Projectile)
+                    && !(entity instanceof org.bukkit.entity.ThrownPotion)
+                    && !(entity instanceof org.bukkit.entity.Firework)) continue;
             entity.remove();
         }
     }
