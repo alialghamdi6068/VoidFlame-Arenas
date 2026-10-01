@@ -90,7 +90,7 @@ public final class Arena {
         if (!enabled) {
             state = ArenaState.DISABLED;
         } else if (state == ArenaState.IN_USE || state == ArenaState.RESETTING) {
-            state = hasTemplate() ? ArenaState.RESETTING : ArenaState.DISABLED;
+            state = ArenaState.RESETTING;
         }
     }
 
