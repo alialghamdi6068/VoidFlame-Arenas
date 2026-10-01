@@ -60,6 +60,11 @@ public final class ArenaManager implements ArenaService {
         }
 
         if (config.getBoolean("arenas.auto-discover-worlds", false)) discoverWorlds();
+        for (Arena arena : all()) {
+            if (arena.isConfigured() && arena.state() == ArenaState.AVAILABLE) {
+                resetService.prepare(arena);
+            }
+        }
         save();
         for (Arena arena : all()) {
             if (arena.state() == ArenaState.RESETTING) {
