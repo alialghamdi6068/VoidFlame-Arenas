@@ -205,7 +205,8 @@ public final class ArenaManager implements ArenaService {
         if (arena == null) return CompletableFuture.completedFuture(false);
 
         synchronized (this) {
-            if (arena.state() != ArenaState.IN_USE) return CompletableFuture.completedFuture(false);
+            if (arena.state() == ArenaState.RESETTING || arena.state() == ArenaState.DISABLED || arena.state() == ArenaState.ERROR) return CompletableFuture.completedFuture(false);
+            if (arena.state() != ArenaState.IN_USE && arena.state() != ArenaState.AVAILABLE) return CompletableFuture.completedFuture(false);
             if (!resetService.prepare(arena)) {
                 arena.finishReset(false);
                 save();
