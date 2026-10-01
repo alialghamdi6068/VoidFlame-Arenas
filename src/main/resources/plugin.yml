@@ -12,7 +12,7 @@ softdepend: [WorldEdit]
 commands:
   arena:
     description: Manage VoidFlame arenas.
-    usage: /arena <list|info|create|delete|setspawn|enable|disable|reset>
+    usage: /arena <list|info|create|delete|setspawn|settemplate|enable|disable|reset|reload>
     permission: voidflame.arena.manage
 
 permissions:
