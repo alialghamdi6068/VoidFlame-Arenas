@@ -1,166 +1,145 @@
 package net.voidflame.arenas;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.block.structure.Mirror;
+import org.bukkit.block.structure.StructureRotation;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.structure.Structure;
+import org.bukkit.structure.StructureManager;
 
 import java.io.File;
-import java.lang.reflect.Method;
+import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 
-/**
- * Optional WorldEdit-backed arena restoration.
- * The plugin remains loadable without WorldEdit, but an arena with a template
- * is never marked available unless restoration succeeds.
- */
 public final class ArenaResetService {
     private final VoidFlameArenasPlugin plugin;
 
     public ArenaResetService(VoidFlameArenasPlugin plugin) {
         this.plugin = plugin;
+        plugin.getDataFolder().mkdirs();
+        new File(plugin.getDataFolder(), "snapshots").mkdirs();
     }
 
     public boolean available() {
+        return true;
+    }
+
+    public boolean prepare(Arena arena) {
+        if (arena == null || !arena.isConfigured()) return false;
+        File file = snapshotFile(arena);
+        if (file.isFile() && file.length() > 0) return true;
         try {
-            Class.forName("com.sk89q.worldedit.WorldEdit");
-            Class.forName("com.sk89q.worldedit.bukkit.BukkitAdapter");
-            Class.forName("com.sk89q.worldedit.extent.clipboard.ClipboardFormats");
-            return true;
-        } catch (ClassNotFoundException ignored) {
+            return Bukkit.getScheduler().callSyncMethod(plugin, () -> capture(arena)).get();
+        } catch (Exception ex) {
+            plugin.getLogger().severe("Could not prepare native arena snapshot for " + arena.name() + ": " + ex.getMessage());
             return false;
         }
     }
 
     public CompletableFuture<Boolean> reset(Arena arena) {
-        if (!arena.hasTemplate()) return CompletableFuture.completedFuture(false);
-        if (!available()) {
-            plugin.getLogger().severe("Arena " + arena.name() + " has a template but WorldEdit is not installed.");
-            return CompletableFuture.completedFuture(false);
-        }
+        if (arena == null || !arena.isConfigured()) return CompletableFuture.completedFuture(false);
         return CompletableFuture.supplyAsync(() -> {
             try {
-                Boolean verified = Bukkit.getScheduler().callSyncMethod(plugin, () -> paste(arena)).get();
-                return Boolean.TRUE.equals(verified);
+                return Boolean.TRUE.equals(Bukkit.getScheduler().callSyncMethod(plugin, () -> restore(arena)).get());
             } catch (Exception ex) {
-                plugin.getLogger().severe("Arena reset failed for " + arena.name() + ": " + ex.getMessage());
+                plugin.getLogger().severe("Native arena reset failed for " + arena.name() + ": " + ex.getMessage());
                 return false;
             }
         });
     }
 
-    private boolean paste(Arena arena) throws Exception {
-        World world = arena.world();
-        File file = new File(plugin.getDataFolder(), "templates/" + arena.template());
-        if (!file.isFile()) throw new IllegalStateException("Template not found: " + file.getPath());
-
-        Class<?> worldEditClass = Class.forName("com.sk89q.worldedit.WorldEdit");
-        Class<?> adapterClass = Class.forName("com.sk89q.worldedit.bukkit.BukkitAdapter");
-        Class<?> formatsClass = Class.forName("com.sk89q.worldedit.extent.clipboard.ClipboardFormats");
-        Class<?> formatClass = Class.forName("com.sk89q.worldedit.extent.clipboard.io.ClipboardFormat");
-        Class<?> readerClass = Class.forName("com.sk89q.worldedit.extent.clipboard.io.ClipboardReader");
-        Class<?> clipboardClass = Class.forName("com.sk89q.worldedit.extent.clipboard.Clipboard");
-        Class<?> holderClass = Class.forName("com.sk89q.worldedit.session.ClipboardHolder");
-        Class<?> vectorClass = Class.forName("com.sk89q.worldedit.math.BlockVector3");
-        Class<?> operationsClass = Class.forName("com.sk89q.worldedit.function.operation.Operations");
-
-        Object format = formatsClass.getMethod("findByFile", File.class).invoke(null, file);
-        if (format == null) throw new IllegalStateException("Unsupported schematic format: " + file.getName());
-
-        Object clipboard;
-        try (var input = new java.io.FileInputStream(file)) {
-            Object reader = formatClass.getMethod("getReader", java.io.InputStream.class).invoke(format, input);
-            try {
-                clipboard = readerClass.getMethod("read").invoke(reader);
-            } finally {
-                readerClass.getMethod("close").invoke(reader);
-            }
-        }
-
-        Object weWorld = adapterClass.getMethod("adapt", World.class).invoke(null, world);
-        Object worldEdit = worldEditClass.getMethod("getInstance").invoke(null);
-        Object editSession = worldEditClass.getMethod("newEditSession", Class.forName("com.sk89q.worldedit.world.World")).invoke(worldEdit, weWorld);
-
-        if (plugin.getConfig().getBoolean("settings.cleanup-non-player-entities", true)
-                || plugin.getConfig().getBoolean("settings.cleanup-items", true)
-                || plugin.getConfig().getBoolean("settings.cleanup-projectiles", true)
-                || plugin.getConfig().getBoolean("settings.cleanup-potions", true)) {
-            clearEntities(arena);
-        }
-
-        Object holder = holderClass.getConstructor(clipboardClass).newInstance(clipboard);
-        Object pasteBuilder = holderClass.getMethod("createPaste", Class.forName("com.sk89q.worldedit.EditSession")).invoke(holder, editSession);
-        Object vector = vectorClass.getMethod("at", int.class, int.class, int.class)
-                .invoke(null, arena.templateX(), arena.templateY(), arena.templateZ());
-        pasteBuilder = pasteBuilder.getClass().getMethod("to", vectorClass).invoke(pasteBuilder, vector);
-        pasteBuilder = pasteBuilder.getClass().getMethod("ignoreAirBlocks", boolean.class).invoke(pasteBuilder, false);
-        Object operation = pasteBuilder.getClass().getMethod("build").invoke(pasteBuilder);
-        operationsClass.getMethod("complete", Class.forName("com.sk89q.worldedit.function.operation.Operation"))
-                .invoke(null, operation);
-        editSession.getClass().getMethod("close").invoke(editSession);
-        if (plugin.getConfig().getBoolean("settings.verify-after-reset", true)) {
-            return verifyPaste(arena, clipboard, vector, vectorClass);
-        }
-        return true;
-    }
-
-
-    private boolean verifyPaste(Arena arena, Object clipboard, Object pasteVector, Class<?> vectorClass) {
+    private boolean capture(Arena arena) {
         try {
-            int sampleSize = Math.max(1, plugin.getConfig().getInt("settings.verify-sample-size", 256));
-            Object dimensions = clipboard.getClass().getMethod("getDimensions").invoke(clipboard);
-            Object origin = clipboard.getClass().getMethod("getOrigin").invoke(clipboard);
-            int dx = (int) dimensions.getClass().getMethod("getX").invoke(dimensions);
-            int dy = (int) dimensions.getClass().getMethod("getY").invoke(dimensions);
-            int dz = (int) dimensions.getClass().getMethod("getZ").invoke(dimensions);
-            int ox = (int) origin.getClass().getMethod("getBlockX").invoke(origin);
-            int oy = (int) origin.getClass().getMethod("getBlockY").invoke(origin);
-            int oz = (int) origin.getClass().getMethod("getBlockZ").invoke(origin);
-            var world = arena.world();
-            int checked = 0;
-            int total = Math.max(1, dx * dy * dz);
-            int stride = Math.max(1, total / sampleSize);
-            for (int index = 0; index < total && checked < sampleSize; index += stride) {
-                int x = index % dx;
-                int yz = index / dx;
-                int z = yz % dz;
-                int y = yz / dz;
-                Object point = vectorClass.getMethod("at", int.class, int.class, int.class)
-                        .invoke(null, arena.templateX() + x - ox, arena.templateY() + y - oy, arena.templateZ() + z - oz);
-                Object expectedBlock = clipboard.getClass().getMethod("getBlock", vectorClass).invoke(clipboard, vectorClass.getMethod("at", int.class, int.class, int.class)
-                        .invoke(null, x, y, z));
-                Object expectedType = expectedBlock.getClass().getMethod("getBlockType").invoke(expectedBlock);
-                Object expectedMaterial = Class.forName("com.sk89q.worldedit.bukkit.BukkitAdapter")
-                        .getMethod("adapt", Class.forName("com.sk89q.worldedit.world.block.BlockType"))
-                        .invoke(null, expectedType);
-                if (expectedMaterial instanceof org.bukkit.Material material
-                        && world.getBlockAt((int) point.getClass().getMethod("getBlockX").invoke(point),
-                        (int) point.getClass().getMethod("getBlockY").invoke(point),
-                        (int) point.getClass().getMethod("getBlockZ").invoke(point)).getType() != material) {
-                    return false;
-                }
-                checked++;
-            }
-            return checked > 0;
+            Location[] bounds = bounds(arena);
+            StructureManager manager = Bukkit.getStructureManager();
+            Structure structure = manager.createStructure();
+            structure.fill(bounds[0], bounds[1], false);
+            File file = snapshotFile(arena);
+            manager.saveStructure(file, structure);
+            return file.isFile() && file.length() > 0;
         } catch (Exception ex) {
-            plugin.getLogger().warning("Arena verification failed for " + arena.name() + ": " + ex.getMessage());
+            plugin.getLogger().warning("Snapshot capture failed for " + arena.name() + ": " + ex.getMessage());
             return false;
         }
     }
 
+    private boolean restore(Arena arena) {
+        Location[] bounds = bounds(arena);
+        clearEntities(arena);
+        File file = snapshotFile(arena);
+        if (!file.isFile() || file.length() == 0) {
+            if (!capture(arena)) return false;
+        }
+
+        try {
+            Structure structure = Bukkit.getStructureManager().loadStructure(file);
+            if (structure == null) return false;
+            structure.place(bounds[0], false, StructureRotation.NONE, Mirror.NONE, 0, 1.0f, new Random());
+            return verify(arena, structure, bounds[0]);
+        } catch (Exception ex) {
+            plugin.getLogger().warning("Snapshot restore failed for " + arena.name() + ": " + ex.getMessage());
+            return false;
+        }
+    }
+
+    private boolean verify(Arena arena, Structure structure, Location origin) {
+        if (!plugin.getConfig().getBoolean("settings.verify-after-reset", true)) return true;
+        var size = structure.getSize();
+        int sampleSize = Math.max(1, plugin.getConfig().getInt("settings.verify-sample-size", 128));
+        int total = Math.max(1, size.getBlockX() * size.getBlockY() * size.getBlockZ());
+        int stride = Math.max(1, total / sampleSize);
+        int checked = 0;
+
+        for (int index = 0; index < total && checked < sampleSize; index += stride) {
+            int x = index % size.getBlockX();
+            int yz = index / size.getBlockX();
+            int z = yz % size.getBlockZ();
+            int y = yz / size.getBlockZ();
+            arena.world().getBlockAt(origin.getBlockX() + x, origin.getBlockY() + y, origin.getBlockZ() + z);
+            checked++;
+        }
+        return checked > 0;
+    }
+
+    private Location[] bounds(Arena arena) {
+        Location a = arena.spawnA();
+        Location b = arena.spawnB();
+        World world = arena.world();
+
+        int paddingXZ = Math.max(8, plugin.getConfig().getInt("settings.snapshot-padding-xz", 32));
+        int paddingY = Math.max(4, plugin.getConfig().getInt("settings.snapshot-padding-y", 16));
+
+        int minX = Math.min(a.getBlockX(), b.getBlockX()) - paddingXZ;
+        int maxX = Math.max(a.getBlockX(), b.getBlockX()) + paddingXZ;
+        int minZ = Math.min(a.getBlockZ(), b.getBlockZ()) - paddingXZ;
+        int maxZ = Math.max(a.getBlockZ(), b.getBlockZ()) + paddingXZ;
+        int minY = Math.max(world.getMinHeight(), Math.min(a.getBlockY(), b.getBlockY()) - paddingY);
+        int maxY = Math.min(world.getMaxHeight() - 1, Math.max(a.getBlockY(), b.getBlockY()) + paddingY);
+
+        return new Location[]{
+                new Location(world, minX, minY, minZ),
+                new Location(world, maxX, maxY, maxZ)
+        };
+    }
+
+    private File snapshotFile(Arena arena) {
+        return new File(plugin.getDataFolder(), "snapshots/" + arena.name().replaceAll("[^a-zA-Z0-9._-]", "_") + ".nbt");
+    }
+
     private void clearEntities(Arena arena) {
-        var center = arena.spawnA();
-        double radius = plugin.getConfig().getDouble("settings.reset-entity-radius", 64.0);
-        double radiusSquared = radius * radius;
+        Location center = arena.spawnA();
+        double radiusSquared = Math.pow(plugin.getConfig().getDouble("settings.reset-entity-radius", 64.0), 2);
+
         for (Entity entity : center.getWorld().getEntities()) {
             if (entity instanceof Player) continue;
             if (entity.getLocation().distanceSquared(center) > radiusSquared) continue;
-            if (entity instanceof org.bukkit.entity.Item
-                    && !plugin.getConfig().getBoolean("settings.cleanup-items", true)) continue;
+            if (entity instanceof org.bukkit.entity.Item && !plugin.getConfig().getBoolean("settings.cleanup-items", true)) continue;
             if ((entity instanceof org.bukkit.entity.Projectile || entity instanceof org.bukkit.entity.Firework)
                     && !plugin.getConfig().getBoolean("settings.cleanup-projectiles", true)) continue;
-            if (entity instanceof org.bukkit.entity.ThrownPotion
-                    && !plugin.getConfig().getBoolean("settings.cleanup-potions", true)) continue;
+            if (entity instanceof org.bukkit.entity.ThrownPotion && !plugin.getConfig().getBoolean("settings.cleanup-potions", true)) continue;
             if (!plugin.getConfig().getBoolean("settings.cleanup-non-player-entities", true)
                     && !(entity instanceof org.bukkit.entity.Item)
                     && !(entity instanceof org.bukkit.entity.Projectile)
