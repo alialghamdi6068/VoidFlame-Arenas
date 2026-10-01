@@ -119,7 +119,11 @@ public final class ArenaCommand implements CommandExecutor, TabCompleter {
         var found = manager.find(args[1]);
         if (found.isEmpty()) { sender.sendMessage(msg("not-found").replace("<arena>", args[1])); return; }
         Arena arena = found.get();
-        if (arena.state() != ArenaState.IN_USE) {
+        if (arena.state() == ArenaState.RESETTING) {
+            sender.sendMessage(msg("reset-blocked"));
+            return;
+        }
+        if (arena.state() == ArenaState.DISABLED) {
             sender.sendMessage(msg("reset-blocked"));
             return;
         }
