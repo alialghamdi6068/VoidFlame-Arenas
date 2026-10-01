@@ -43,7 +43,15 @@ public final class ArenaManager implements ArenaService {
                 Location paste = readLocation(raw.get("template-paste"), world);
                 if (!template.isBlank() && paste != null) {
                     arena.setTemplate(template, paste);
-                    if (arena.enabled()) arena.beginReset();
+                }
+                String persistedState = string(raw.get("runtime-state"));
+                if ("IN_USE".equalsIgnoreCase(persistedState)
+                        || "RESETTING".equalsIgnoreCase(persistedState)
+                        || "ERROR".equalsIgnoreCase(persistedState)) {
+                    arena.recoverForStartup();
+                }
+                if (arena.enabled() && arena.state() == ArenaState.RESETTING) {
+                    // Never expose an arena after an unclean shutdown until its template is restored.
                 }
                 register(arena);
             } catch (IllegalArgumentException ex) {
@@ -259,6 +267,7 @@ public final class ArenaManager implements ArenaService {
             data.put("name", arena.name());
             data.put("world", arena.world().getName());
             data.put("enabled", arena.enabled());
+            data.put("runtime-state", arena.state().name());
             data.put("spawn-a", writeLocation(arena.spawnA()));
             data.put("spawn-b", writeLocation(arena.spawnB()));
 
