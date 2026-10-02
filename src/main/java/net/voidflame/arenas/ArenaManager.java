@@ -15,6 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class ArenaManager implements ArenaService {
     private final JavaPlugin plugin;
     private final Map<String, Arena> arenas = new ConcurrentHashMap<>();
+    private final Map<String, Set<String>> allowedKits = new ConcurrentHashMap<>();
     private final ArenaResetService resetService;
 
     public ArenaManager(JavaPlugin plugin) {
@@ -24,6 +25,7 @@ public final class ArenaManager implements ArenaService {
 
     public synchronized void load() {
         arenas.clear();
+        allowedKits.clear();
         FileConfiguration config = plugin.getConfig();
         for (Map<?, ?> raw : config.getMapList("arenas.list")) {
             String name = string(raw.get("name"));
@@ -44,6 +46,11 @@ public final class ArenaManager implements ArenaService {
                 if (!template.isBlank() && paste != null) {
                     arena.setTemplate(template, paste);
                 }
+                Object kitsRaw = raw.get("allowed-kits");
+                Set<String> kits = new LinkedHashSet<>();
+                if (kitsRaw instanceof Collection<?> collection) collection.forEach(v -> kits.add(String.valueOf(v).toLowerCase(Locale.ROOT)));
+                if (kits.isEmpty()) kits.add("*");
+                allowedKits.put(normalize(name), kits);
                 String persistedState = string(raw.get("runtime-state"));
                 if ("IN_USE".equalsIgnoreCase(persistedState)
                         || "RESETTING".equalsIgnoreCase(persistedState)
@@ -283,6 +290,7 @@ public final class ArenaManager implements ArenaService {
             data.put("world", arena.world().getName());
             data.put("enabled", arena.enabled());
             data.put("runtime-state", arena.state().name());
+            data.put("allowed-kits", new ArrayList<>(allowedKits.getOrDefault(normalize(arena.name()), Set.of("*"))));
             data.put("spawn-a", writeLocation(arena.spawnA()));
             data.put("spawn-b", writeLocation(arena.spawnB()));
 
