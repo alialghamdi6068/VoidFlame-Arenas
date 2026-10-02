@@ -310,6 +310,18 @@ public final class ArenaManager implements ArenaService {
         plugin.saveConfig();
     }
 
+    public synchronized Set<String> allowedKits(String name) {
+        return Set.copyOf(allowedKits.getOrDefault(normalize(name), Set.of("*")));
+    }
+
+    public synchronized void setAllowedKits(String name, Collection<String> kits) {
+        LinkedHashSet<String> normalized = new LinkedHashSet<>();
+        if (kits != null) for (String kit : kits) if (kit != null && !kit.isBlank()) normalized.add(kit.toLowerCase(Locale.ROOT));
+        if (normalized.isEmpty()) normalized.add("*");
+        allowedKits.put(normalize(name), normalized);
+        save();
+    }
+
     public synchronized Optional<Arena> acquireForKit(String kitId) {
         String wanted = kitId == null ? "*" : kitId.toLowerCase(Locale.ROOT);
         return all().stream().filter(Arena::isReady).filter(a -> {
