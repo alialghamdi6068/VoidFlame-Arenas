@@ -54,9 +54,16 @@ public final class ArenaAdminMenu implements Listener {
     @EventHandler public void click(InventoryClickEvent e){
         if(!(e.getWhoClicked() instanceof Player p))return;
         String t=e.getView().getTitle();if(!t.equals(MAIN)&&!t.equals(EDIT)&&!t.equals(KITS))return;e.setCancelled(true);
-        int s=e.getRawSlot();if(s<0||s>=27)return;
+        int s=e.getRawSlot();if(s<0||s>=(t.equals(KITS)?54:27))return;
         if(s==26){p.closeInventory();return;}
-        if(t.equals(KITS)){\n            String name=org.bukkit.ChatColor.stripColor(e.getInventory().getItem(4).getItemMeta().getDisplayName()).replace("Arena: ","").trim();\n            int idx=s-10; List<String> ids=kitIds();\n            if(s==49){edit(p,name);return;}\n            if(idx>=0&&idx<ids.size()){String kit=ids.get(idx); java.util.Set<String> allowed=new java.util.LinkedHashSet<>(manager.allowedKits(name)); if(allowed.contains("*")) allowed.remove("*"); if(allowed.contains(kit)) allowed.remove(kit); else allowed.add(kit); manager.setAllowedKits(name,allowed); openKits(p,name);}\n            return;\n        }\n        if(t.equals(MAIN)){
+        if(t.equals(KITS)){
+            String name=org.bukkit.ChatColor.stripColor(e.getInventory().getItem(4).getItemMeta().getDisplayName()).replace("Arena: ","").trim();
+            int idx=s-10; List<String> ids=kitIds();
+            if(s==49){edit(p,name);return;}
+            if(idx>=0&&idx<ids.size()){String kit=ids.get(idx); java.util.Set<String> allowed=new java.util.LinkedHashSet<>(manager.allowedKits(name)); if(allowed.contains("*")) allowed.remove("*"); if(allowed.contains(kit)) allowed.remove(kit); else allowed.add(kit); manager.setAllowedKits(name,allowed); openKits(p,name);}
+            return;
+        }
+        if(t.equals(MAIN)){
             if(s==21){begin(p,"CREATE");return;}
             if(s==22){if(manager.reload())p.sendMessage("§aArena configuration reloaded.");else p.sendMessage("§cReload blocked.");open(p);return;}
             if(s==18){p.closeInventory();return;}
@@ -77,7 +84,16 @@ public final class ArenaAdminMenu implements Listener {
             default->{}
         }
     }
-    private void openKits(Player p,String name){\n        Inventory inv=Bukkit.createInventory(null,54,KITS); fill(inv);\n        inv.setItem(4,item(Material.CHEST,"§d§lArena: §f"+name));\n        List<String> ids=kitIds(); java.util.Set<String> allowed=manager.allowedKits(name);\n        for(int i=0;i<ids.size()&&i<28;i++){String kit=ids.get(i); boolean on=allowed.contains("*")||allowed.contains(kit); inv.setItem(10+(i/7)*9+(i%7),item(on?Material.LIME_DYE:Material.GRAY_DYE,(on?"§a§l":"§7§l")+kit,"§7Click to "+(on?"disable":"enable")+" for this arena"));}\n        inv.setItem(49,item(Material.ARROW,"§7§lBack")); p.openInventory(inv);\n    }\n    private List<String> kitIds(){RegisteredServiceProvider<KitService> r=Bukkit.getServicesManager().getRegistration(KitService.class); return r==null||r.getProvider()==null?List.of("sword","axe","uhc","mace","crystal","netherite_pot","smp","spear_mace"):r.getProvider().listIds();}\n\n    private void begin(Player p,String type){inputs.put(p.getUniqueId(),type);p.closeInventory();p.sendMessage("§eType the arena name in chat. §7Type §ccancel §7to abort.");}
+    private void openKits(Player p,String name){
+        Inventory inv=Bukkit.createInventory(null,54,KITS); fill54(inv);
+        inv.setItem(4,item(Material.CHEST,"§d§lArena: §f"+name));
+        List<String> ids=kitIds(); java.util.Set<String> allowed=manager.allowedKits(name);
+        for(int i=0;i<ids.size()&&i<28;i++){String kit=ids.get(i); boolean on=allowed.contains("*")||allowed.contains(kit); inv.setItem(10+(i/7)*9+(i%7),item(on?Material.LIME_DYE:Material.GRAY_DYE,(on?"§a§l":"§7§l")+kit,"§7Click to "+(on?"disable":"enable")+" for this arena"));}
+        inv.setItem(49,item(Material.ARROW,"§7§lBack")); p.openInventory(inv);
+    }
+    private List<String> kitIds(){RegisteredServiceProvider<KitService> r=Bukkit.getServicesManager().getRegistration(KitService.class); return r==null||r.getProvider()==null?List.of("sword","axe","uhc","mace","crystal","netherite_pot","smp","spear_mace"):r.getProvider().listIds();}
+
+    private void begin(Player p,String type){inputs.put(p.getUniqueId(),type);p.closeInventory();p.sendMessage("§eType the arena name in chat. §7Type §ccancel §7to abort.");}
     @EventHandler public void chat(AsyncPlayerChatEvent e){
         String type=inputs.remove(e.getPlayer().getUniqueId());if(type==null)return;e.setCancelled(true);
         String msg=e.getMessage().trim();Player p=e.getPlayer();if(msg.equalsIgnoreCase("cancel")){p.sendMessage("§7Cancelled.");open(p);return;}
@@ -87,5 +103,6 @@ public final class ArenaAdminMenu implements Listener {
         });
     }
     private void fill(Inventory inv){ItemStack x=item(Material.GRAY_STAINED_GLASS_PANE," ");for(int i=0;i<27;i++)inv.setItem(i,x.clone());}
+    private void fill54(Inventory inv){ItemStack x=item(Material.GRAY_STAINED_GLASS_PANE," ");for(int i=0;i<54;i++)inv.setItem(i,x.clone());}
     private ItemStack item(Material m,String n,String...l){ItemStack x=new ItemStack(m);ItemMeta meta=x.getItemMeta();if(meta!=null){meta.setDisplayName(n);meta.setLore(List.of(l));x.setItemMeta(meta);}return x;}
 }
