@@ -1,6 +1,8 @@
 package net.voidflame.arenas;
 
 import net.voidflame.core.api.ArenaService;
+import net.voidflame.core.storage.StorageService;
+import org.bukkit.plugin.RegisteredServiceProvider;
 import net.voidflame.core.api.AuditLogService;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -17,10 +19,13 @@ public final class ArenaManager implements ArenaService {
     private final Map<String, Arena> arenas = new ConcurrentHashMap<>();
     private final Map<String, Set<String>> allowedKits = new ConcurrentHashMap<>();
     private final ArenaResetService resetService;
+    private StorageService storage;
 
     public ArenaManager(JavaPlugin plugin) {
         this.plugin = Objects.requireNonNull(plugin);
         this.resetService = new ArenaResetService((VoidFlameArenasPlugin) plugin);
+        RegisteredServiceProvider<StorageService> registration = Bukkit.getServicesManager().getRegistration(StorageService.class);
+        if (registration != null) storage = registration.getProvider();
     }
 
     public synchronized void load() {
@@ -67,6 +72,17 @@ public final class ArenaManager implements ArenaService {
         }
 
         if (config.getBoolean("arenas.auto-discover-worlds", false)) discoverWorlds();
+        if (storage != null) {
+            for (Arena arena : all()) {
+                final String arenaName = normalize(arena.name());
+                storage.get("arenas", "allowed-kits." + arenaName).thenAccept(value -> {
+                    if (value == null || value.isBlank()) return;
+                    Set<String> loaded = new LinkedHashSet<>();
+                    for (String kit : value.split(",")) if (!kit.isBlank()) loaded.add(kit.toLowerCase(Locale.ROOT));
+                    if (!loaded.isEmpty()) allowedKits.put(arenaName, loaded);
+                });
+            }
+        }
         for (Arena arena : all()) {
             if (arena.isConfigured() && arena.state() == ArenaState.AVAILABLE) {
                 resetService.prepare(arena);
@@ -319,6 +335,7 @@ public final class ArenaManager implements ArenaService {
         if (kits != null) for (String kit : kits) if (kit != null && !kit.isBlank()) normalized.add(kit.toLowerCase(Locale.ROOT));
         if (normalized.isEmpty()) normalized.add("*");
         allowedKits.put(normalize(name), normalized);
+        if (storage != null) storage.put("arenas", "allowed-kits." + normalize(name), String.join(",", normalized));
         save();
     }
 
