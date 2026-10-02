@@ -310,6 +310,14 @@ public final class ArenaManager implements ArenaService {
         plugin.saveConfig();
     }
 
+    public synchronized Optional<Arena> acquireForKit(String kitId) {
+        String wanted = kitId == null ? "*" : kitId.toLowerCase(Locale.ROOT);
+        return all().stream().filter(Arena::isReady).filter(a -> {
+            Set<String> allowed = allowedKits.getOrDefault(normalize(a.name()), Set.of("*"));
+            return allowed.contains("*") || allowed.contains(wanted);
+        }).filter(Arena::acquire).findFirst();
+    }
+
     @Override
     public synchronized Optional<ArenaService.ArenaHandle> acquireHandle() {
         return acquireAvailable().map(arena -> new ArenaService.ArenaHandle(arena.name(), arena.spawnA(), arena.spawnB()));
